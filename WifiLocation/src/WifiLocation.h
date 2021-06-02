@@ -45,7 +45,7 @@ protected:
     //String _googleApiFingerprint = "2c 86 e4 67 e7 b5 ca df 11 9e bd 2e 41 c2 4b e8 b6 7e cd aa";
     //IPAddress _googleApiIP = IPAddress(216, 58, 214, 170);
 #if defined ESP8266 || defined ARDUINO_ARCH_ESP32
-    WiFiClientSecure  _client;
+    WiFiClientSecure&  _client;
 #elif defined ARDUINO_ARCH_SAMD
     WiFiSSLClient  _client;
 #endif

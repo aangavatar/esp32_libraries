@@ -21,8 +21,8 @@ static const char GSM_OK[] TINY_GSM_PROGMEM = "OK" GSM_NL;
 static const char GSM_ERROR[] TINY_GSM_PROGMEM = "ERROR" GSM_NL;
 static const char GSM_CONNECT[] TINY_GSM_PROGMEM = "CONNECT" GSM_NL;
 
-//#define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
-#define NETWORK_APN "+QICSGP=1,1,\"vzwinternet\",\"\",\"\",1"
+#define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
+//#define NETWORK_APN "+QICSGP=1,1,\"vzwinternet\",\"\",\"\",1"
 
 enum SimStatus
 {
@@ -688,6 +688,7 @@ public:
 			String localIp = readStringUntil('\n');
 			Serial.print("localIp:");
 			Serial.println(localIp);
+			waitResponse(GSM_OK);
 			Serial.flush();
 		}
 		else

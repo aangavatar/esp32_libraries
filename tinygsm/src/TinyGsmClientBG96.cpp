@@ -293,7 +293,10 @@ bool TinyGsmBG96::sendHttp_POST_Request(const char* pDataHeader,
 
 	if (!isIPConnected())
 	{
-		return false;
+		if (!isIPConnected())
+		{
+			return false;
+		}
 	}
 
 

@@ -50,7 +50,10 @@ String WifiLocation::MACtoString(uint8_t* macAddress) {
     return  String(macStr);
 }
 
-WifiLocation::WifiLocation(String googleKey) {
+extern WiFiClientSecure g_secureClient;
+WifiLocation::WifiLocation(String googleKey):
+	 _client(g_secureClient)
+{
     _googleApiKey = googleKey;
 }
 

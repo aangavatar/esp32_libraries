@@ -275,7 +275,7 @@ int data_to_read(sslclient_context *ssl_client)
 }
 
 
-int send_ssl_data(sslclient_context *ssl_client, const uint8_t *data, uint16_t len)
+int send_ssl_data(sslclient_context *ssl_client, const uint8_t *data, size_t len)
 {
     log_v("Writing HTTP request...");  //for low level debug
     int ret = -1;
