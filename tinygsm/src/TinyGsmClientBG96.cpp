@@ -224,7 +224,32 @@ bool TinyGsmBG96::startPacketDataCall()
 
 		sendAT(GF("+QIACT=1"));
 		if (waitResponse(40000L) != 1)
+#if 0
 			return false;
+
+#else
+			delay(5000);
+			sendAT(GF("+QIACT=1"));
+			if ((waitResponse(40000L) != 1) && (!isIPConnected()))
+			{
+
+					delay(2000);
+					sendAT(GF("+QIACT=1"));
+					uint32_t trial = 0;
+					for (trial = 0; ((waitResponse(40000L) != 1) && trial < 100);
+							trial++)
+					{
+						if (isIPConnected())
+						{
+							break;
+						}
+						delay(2000);
+						sendAT(GF("+QIACT=1"));
+					}
+
+				}
+			}
+#endif
 
 		if (!isIPConnected())
 		{
@@ -243,7 +268,6 @@ bool TinyGsmBG96::startPacketDataCall()
 			return false;
 
 		setSslConfig();
-	}
 
 	return true;
 }
@@ -293,10 +317,7 @@ bool TinyGsmBG96::sendHttp_POST_Request(const char* pDataHeader,
 
 	if (!isIPConnected())
 	{
-		if (!isIPConnected())
-		{
-			return false;
-		}
+		return false;
 	}
 
 
@@ -343,7 +364,7 @@ bool TinyGsmBG96::sendHttp_POST_Request(const char* pDataHeader,
 			return false;
 	}
 
-	const int32_t postResp = waitResponse(125000L, "+QHTTPPOST: 0,200", "+QHTTPPOST: 7");
+	const int32_t postResp = waitResponse(125000L, "+QHTTPPOST: 0,200", "+QHTTPPOST: 7", "+QHTTPPOST: 0,500");
 	if (postResp != 1)
 		return false;
 
@@ -415,9 +436,6 @@ bool TinyGsmBG96::sendHttp_GET_Request(const char* pDataHeader,
 
 	if (waitResponse(40000L, "+QHTTPGET: 0,200,") != 1)
 		return false;
-
-//	stream.flush();
-	waitResponse(4000L);
 
 	if (responseIsFile)
 	{

@@ -21,8 +21,12 @@ static const char GSM_OK[] TINY_GSM_PROGMEM = "OK" GSM_NL;
 static const char GSM_ERROR[] TINY_GSM_PROGMEM = "ERROR" GSM_NL;
 static const char GSM_CONNECT[] TINY_GSM_PROGMEM = "CONNECT" GSM_NL;
 
+#if HG_TEST_MODE
 #define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
-//#define NETWORK_APN "+QICSGP=1,1,\"vzwinternet\",\"\",\"\",1"
+#else
+//#define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
+#define NETWORK_APN "+QICSGP=1,1,\"vzwinternet\",\"\",\"\",1"
+#endif
 
 enum SimStatus
 {
@@ -521,12 +525,14 @@ public:
 
 		if (waitResponse(GF("+QENG: \"servingcell\",\"NOCONN\",")) != 1)
 		{
+			waitResponse();
 			return -1;
 		}
 
 		rat = stream.readStringUntil(',');
 		if (rat == "")
 		{
+			waitResponse();
 			return -2;
 		}
 
@@ -570,6 +576,8 @@ public:
 			sCellInfo.lac =  convertHex2Dec(stream.readStringUntil(','));
 			sCellInfo.sigStrength = stream.readStringUntil(',').toInt();
 		}
+
+		waitResponse();
 		return 1;
 	}
 
@@ -688,13 +696,15 @@ public:
 			String localIp = readStringUntil('\n');
 			Serial.print("localIp:");
 			Serial.println(localIp);
-			waitResponse(GSM_OK);
 			Serial.flush();
 		}
 		else
 		{
 			return false;
 		}
+
+		if (waitResponse() != 1)
+			return false;
 
 		return (contextState == 1);
 	}
@@ -1012,7 +1022,6 @@ protected:
 			sockets[mux]->rx.put(c);
 		}
 		waitResponse();
-		DBG("### READ:", mux, ",", len);
 		return len;
 	}
 
