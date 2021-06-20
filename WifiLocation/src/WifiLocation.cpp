@@ -8,8 +8,18 @@
 const char* googleApisHost = "www.googleapis.com";
 const char* googleApiUrl = "/geolocation/v1/geolocate";
 
+#if DEBUG_WIFI_LOCATION
+#define DEBUG_WL Serial.print
+#else
+#define DEBUG_WL(...)
+#endif
+
+#if !defined ESP32 && !defined ESP8266
+#error Only ESP8266 and ESP32 platforms are supported
+#endif
+
+
 // GlobalSign CA certificate valid until 15th december 2021
-#if defined ARDUINO_ARCH_ESP32 || defined ARDUINO_ARCH_ESP8266
 static const char GlobalSignCA[] PROGMEM = R"EOF(
 -----BEGIN CERTIFICATE-----
 MIIESjCCAzKgAwIBAgINAeO0mqGNiqmBJWlQuDANBgkqhkiG9w0BAQsFADBMMSAw
@@ -37,150 +47,120 @@ IRdAvKLWZu/axBVbzYmqmwkm5zLSDW5nIAJbELCQCZwMH56t2Dvqofxs6BBcCFIZ
 USpxu6x6td0V7SvJCCosirSmIatj/9dSSVDQibet8q/7UK4v4ZUN80atnZz1yg==
 -----END CERTIFICATE-----
 )EOF";
-#endif
 
 String WifiLocation::MACtoString(uint8_t* macAddress) {
-    uint8_t mac[6];
-    char macStr[18] = { 0 };
-#ifdef ARDUINO_ARCH_SAMD
-    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", macAddress[5], macAddress[4], macAddress[3], macAddress[2], macAddress[1], macAddress[0]);
-#elif defined ARDUINO_ARCH_ESP8266 || defined ARDUINO_ARCH_ESP32
-    sprintf(macStr, "%02X:%02X:%02X:%02X:%02X:%02X", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
-#endif
+    const int MAC_ADDR_SIZE = 18;
+    char macStr[MAC_ADDR_SIZE] = { 0 };
+    snprintf (macStr, MAC_ADDR_SIZE, "%02X:%02X:%02X:%02X:%02X:%02X", macAddress[0], macAddress[1], macAddress[2], macAddress[3], macAddress[4], macAddress[5]);
     return  String(macStr);
 }
 
-extern WiFiClientSecure g_secureClient;
-WifiLocation::WifiLocation(String googleKey):
-	 _client(g_secureClient)
-{
+WifiLocation::WifiLocation(String googleKey) {
     _googleApiKey = googleKey;
 }
 
 // Function to get a list of surrounding WiFi signals in JSON format to get location via Google Location API
 String WifiLocation::getSurroundingWiFiJson() {
-    String wifiArray = "[\n";
+    String wifiArray = "[";
 
     int8_t numWifi = WiFi.scanNetworks();
     if(numWifi > MAX_WIFI_SCAN) {
         numWifi = MAX_WIFI_SCAN;
     }
 
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println(String(numWifi) + " WiFi networks found");
-#endif // DEBUG_WIFI_LOCATION
+    DEBUG_WL (String (numWifi) + " WiFi networks found\n");
     for (uint8_t i = 0; i < numWifi; i++) {//numWifi; i++) {
-      //Serial.print("WiFi.BSSID(i) = ");
-      //Serial.println((char *)WiFi.BSSID(i));
-#ifdef ARDUINO_ARCH_SAMD
-        byte bssid[6];
-
-        wifiArray += "{\"macAddress\":\"" + MACtoString(WiFi.BSSID(i,bssid)) + "\",";
-#elif defined ARDUINO_ARCH_ESP8266 || defined ARDUINO_ARCH_ESP32
+        //DEBUG_WL("WiFi.BSSID(i) = ");
+        //DEBUG_WL((char *)WiFi.BSSID(i));
+        //DEBUG_WL ("\n");
         wifiArray += "{\"macAddress\":\"" + MACtoString(WiFi.BSSID(i)) + "\",";
-#else
-#error Only ESP8266 and SAMD platforms are supported
-#endif
         wifiArray += "\"signalStrength\":" + String(WiFi.RSSI(i)) + ",";
         wifiArray += "\"channel\":" + String(WiFi.channel(i)) + "}";
         if (i < (numWifi - 1)) {
             wifiArray += ",\n";
         }
     }
-#if defined ARDUINO_ARCH_ESP8266 || defined ARDUINO_ARCH_ESP32
     WiFi.scanDelete();
-#endif
     wifiArray += "]";
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println("WiFi list :\n" + wifiArray);
-#endif // DEBUG_WIFI_LOCATION
+    DEBUG_WL ("WiFi list:\n" + wifiArray + "\n\n");
     return wifiArray;
 }
 
-#if defined ARDUINO_ARCH_ESP32 || defined ARDUINO_ARCH_ESP8266
-// Set time via NTP, as required for x.509 validation
-void setClock () {
-    configTime (0, 0, "pool.ntp.org", "time.nist.gov");
+// // Set time via NTP, as required for x.509 validation
+// void setClock () {
+//     configTime (3600, 0, "pool.ntp.org", "time.nist.gov");
 
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.print ("Waiting for NTP time sync: ");
-#endif
-    time_t now = time (nullptr);
-    while (now < 8 * 3600 * 2) {
-        delay (500);
-#ifdef DEBUG_WIFI_LOCATION
-        Serial.print (".");
-#endif
-        now = time (nullptr);
-    }
-    struct tm timeinfo;
-    gmtime_r (&now, &timeinfo);
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println ();
-    Serial.print ("Current time: ");
-    Serial.print (asctime (&timeinfo));
-#endif
-}
-#endif //ARDUINO_ARCH_ESP32 || ARDUINO_ARCH_ESP8266
+//     DEBUG_WL ("Waiting for NTP time sync: ");
+//     time_t now = time (nullptr);
+//     while (now < 8 * 3600 * 2) {
+//         delay (500);
+//         DEBUG_WL (".");
+//         now = time (nullptr);
+//     }
+// #if DEBUG_WIFI_LOCATION
+//     struct tm timeinfo;
+//     gmtime_r (&now, &timeinfo);
+//     DEBUG_WL ("\n");
+//     DEBUG_WL ("Current time: ");
+//     DEBUG_WL (asctime (&timeinfo));
+//     DEBUG_WL ("\n");
+// #endif
+// }
 
 // Calls Google Location API to get current location using surrounding WiFi signals inf
-location_t WifiLocation::getGeoFromWiFi(String pPayload)
-{
+location_t WifiLocation::getGeoFromWiFi() {
 
     location_t location;
     String response = "";
-#if defined ARDUINO_ARCH_ESP8266 || defined ARDUINO_ARCH_ESP32
-	setClock ();
-#ifdef ARDUINO_ARCH_ESP8266 
+// 	setClock ();
+    if (time (nullptr) < 8 * 3600 * 2) {
+        status = WL_TIME_NOT_SET;
+        return location;
+    }
+#ifdef ESP8266 
 #if (defined BR_BEARSSL_H__ && not defined USE_CORE_PRE_2_5_0)
 	BearSSL::X509List cert (GlobalSignCA);
 	_client.setTrustAnchors (&cert);
 #else
 	_client.setCACert (reinterpret_cast<const uint8_t*>(GlobalSignCA), sizeof (GlobalSignCA));
 #endif
-#endif // ARDUINO_ARCH_ESP8266
-#endif
-#ifdef ARDUINO_ARCH_ESP32
+#endif // ESP8266
+
+#ifdef ESP32
     _client.setCACert(GlobalSignCA);
 #endif
     if (_client.connect(googleApisHost, 443)) {
-#ifdef DEBUG_WIFI_LOCATION
-        Serial.println("Connected to API endpoint");
-#endif // DEBUG_WIFI_LOCATION
+        DEBUG_WL ("Connected to API endpoint\n");
     } else {
-#ifdef DEBUG_WIFI_LOCATION
-        Serial.println("HTTPS error");
-#endif // DEBUG_WIFI_LOCATION
+        DEBUG_WL ("HTTPS error\n");
+        status = WL_API_CONNECT_ERROR;
         return location;
     }
 
-    if (pPayload == "")
-    {
-    	String body = "{\"wifiAccessPoints\":" + getSurroundingWiFiJson() + "}";
-    }
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println("requesting URL: " + String(googleApiUrl) + "?key=" + _googleApiKey);
-#endif // DEBUG_WIFI_LOCATION
+    String body = "{\"considerIP\":false,\"wifiAccessPoints\":" + getSurroundingWiFiJson () + "}";
+    DEBUG_WL ("requesting URL: " + String (googleApiUrl) + "?key=" + _googleApiKey + "\n");
     String request = String("POST ") + String(googleApiUrl);
     if (_googleApiKey != "")
         request += "?key=" + _googleApiKey;
     request += " HTTP/1.1\r\n";
-    request += "Host: " + String(googleApisHost) + "\r\n";
-    request += "User-Agent: HG3\r\n";
+    request += "Host: " + String (googleApisHost) + "\r\n";
+#ifdef ESP32
+    request += "User-Agent: ESP32\r\n";
+#else
+    request += "User-Agent: ESP8266\r\n";
+#endif
     request += "Content-Type:application/json\r\n";
-    request += "Content-Length:" + String(pPayload.length()) + "\r\n";
-    request += "Connection: close\r\n\r\n";
-    request += pPayload;
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println("request: \n" + request);
-#endif // DEBUG_WIFI_LOCATION
+    request += "Content-Length:" + String (body.length ()) + "\r\n";
+    request += "Connection: keep-alive\r\n\r\n";
+    //request += "Connection: close\r\n\r\n";
+    request += body;
+    DEBUG_WL ("request: \n" + request + "\n");
 
     _client.println(request);
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println("request sent");
-    Serial.print("Free heap: ");
-    Serial.println(ESP.getFreeHeap());
-#endif // DEBUG_WIFI_LOCATION
+    DEBUG_WL ("request sent\n");
+    DEBUG_WL ("Free heap: ");
+    DEBUG_WL (ESP.getFreeHeap ());
+    DEBUG_WL ("\n");
     int timer = millis();
 
     // Wait for response
@@ -190,20 +170,16 @@ location_t WifiLocation::getGeoFromWiFi(String pPayload)
         yield ();
     }
     while (_client.available()) {
-#ifdef DEBUG_WIFI_LOCATION
-        Serial.print(".");
-#endif // DEBUG_WIFI_LOCATION
+        DEBUG_WL (".");
         response += _client.readString();
         yield ();
     }
-#ifdef DEBUG_WIFI_LOCATION
-    Serial.println();
-#endif // DEBUG_WIFI_LOCATION
+    _client.stop ();
+    DEBUG_WL ("\n");
     if (response != "") {
-#ifdef DEBUG_WIFI_LOCATION
-        Serial.println("Got response:");
-        Serial.println(response);
-#endif // DEBUG_WIFI_LOCATION
+        DEBUG_WL ("Got response:\n");
+        DEBUG_WL (response);
+        DEBUG_WL ("\n");
 
         int index = response.indexOf("\"lat\":");
         if (index != -1) {
@@ -212,35 +188,46 @@ location_t WifiLocation::getGeoFromWiFi(String pPayload)
             tempStr = tempStr.substring(tempStr.indexOf(":") + 1, tempStr.indexOf(","));
             //Serial.println(tempStr);
             location.lat = tempStr.toFloat();
-#ifdef DEBUG_WIFI_LOCATION
-            Serial.println("\nLat: " + String(location.lat, 7));
-#endif // DEBUG_WIFI_LOCATION
+            DEBUG_WL ("\nLat: " + String (location.lat, 7) + "\n");
         }
 
         index = response.indexOf("\"lng\":");
         if (index != -1) {
             String tempStr = response.substring(index);
-            //Serial.println(tempStr);
+            // DEBUG_WL (tempStr + "\n");
             tempStr = tempStr.substring(tempStr.indexOf(":") + 1, tempStr.indexOf(","));
-            //Serial.println(tempStr);
+            // DEBUG_WL (tempStr + "\n");
             location.lon = tempStr.toFloat();
-#ifdef DEBUG_WIFI_LOCATION
-            Serial.println("Lon: " + String(location.lon, 7));
-#endif // DEBUG_WIFI_LOCATION
+            DEBUG_WL ("Lon: " + String (location.lon, 7) + "\n");
         }
 
         index = response.indexOf("\"accuracy\":");
         if (index != -1) {
             String tempStr = response.substring(index);
-            //Serial.println(tempStr);
+            // DEBUG_WL (tempStr + "\n");
             tempStr = tempStr.substring(tempStr.indexOf(":") + 1, tempStr.indexOf("\n"));
-            //Serial.println(tempStr);
+            // DEBUG_WL (tempStr + "\n");
             location.accuracy = tempStr.toFloat();
-#ifdef DEBUG_WIFI_LOCATION
-            Serial.println("Accuracy: " + String(location.accuracy) + "\n");
-#endif // DEBUG_WIFI_LOCATION
+            DEBUG_WL ("Accuracy: " + String (location.accuracy) + "\n\n");
         }
     }
 
+    status = WL_OK;
     return location;
+}
+
+String WifiLocation::wlStatusStr (int status) {
+    switch (status) {
+    case WL_API_CONNECT_ERROR:
+        return "API connection error";
+        break;
+    case WL_OK:
+        return "OK";
+        break;
+    case WL_TIME_NOT_SET:
+        return "Time not set";
+        break;            
+    default:
+        return "Unknown error";
+    }
 }

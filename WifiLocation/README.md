@@ -1,11 +1,14 @@
 # WiFi Location
 
 > ## Important notice:
-> Since July 2018, Google's conditions for Maps APIs have changed. You have to assign a billing method to it so that you are able to use it. Check more information here: https://cloud.google.com/maps-platform/pricing/. Be careful about number of request you made using this library. I am not responsible of billing cost caused by use of  Google API.
+> Since July 2018, Google's conditions for Maps APIs have changed. You have to assign a billing method to it so that you are able to use it. Check more information here: https://cloud.google.com/maps-platform/pricing/. Be careful about number of request you make using this library. There is a free tier but you know this can change in any moment. I am not responsible of billing cost caused by use of Google API.
 
 > ## Platform compatibility:
 > Support of SAMD microcontrollers have been deprecated. If you use MKR series boards from Arduino you can keep using version 1.2.5.
 > Newer developments will be done for ESP8266 and ESP32.
+
+> ## Google CA certificate expiration
+> Current Google CA certificate will expire on Dec 15th 2021. This is needed to validate security Google API address. I'll update it as soon Google release a new one. But keep in mind that you will need to update before that date to keep this library working
 
 ## Introduction
 When location information is needed in an electronic project, we normally think about a GPS module. But we know that mobile phones can get approximate location listening WiFi signals, when GPS is disabled or not usable because we are inside a building.
@@ -19,7 +22,7 @@ This is a library that sends Google Maps GeoLocaion API a request with a list of
 
 Request body has this form:
 
-```
+```json
 {
 	"wifiAccessPoints": [
 		{"macAddress":"XX:XX:XX:XX:XX:XX","signalStrength":-58,"channel":11},
@@ -34,7 +37,7 @@ Request body has this form:
 ```
 If information is correct, Google GeoLocation API response will be like this:
 
-```
+```json
 {
  "location": {
   "lat": 37.3689919,
@@ -83,7 +86,7 @@ In future versions, I'll try to add non blocking options. I think I can keep bac
 
 ## Code example
 
-Valid for ESP32, ESP8266 and MKR1000 (SAMD architecture)
+Valid for ESP32 and ESP8266
 
 ```Arduino
 #ifdef ARDUINO_ARCH_SAMD

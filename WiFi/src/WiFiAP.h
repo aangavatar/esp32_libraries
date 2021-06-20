@@ -45,6 +45,10 @@ public:
 
     IPAddress softAPIP();
 
+    IPAddress softAPBroadcastIP();
+    IPAddress softAPNetworkID();
+    uint8_t softAPSubnetCIDR();
+
     bool softAPenableIpV6();
     IPv6Address softAPIPv6();
 
@@ -53,6 +57,8 @@ public:
 
     uint8_t* softAPmacAddress(uint8_t* mac);
     String softAPmacAddress(void);
+
+    String softAPSSID(void) const;
 
 protected:
 

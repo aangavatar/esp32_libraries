@@ -1,8 +1,6 @@
 
 #include <Arduino.h>
-#ifdef ARDUINO_ARCH_SAMD
-#include <WiFi101.h>
-#elif defined ARDUINO_ARCH_ESP8266
+#if defined ARDUINO_ARCH_ESP8266
 #include <ESP8266WiFi.h>
 #elif defined ARDUINO_ARCH_ESP32
 #include <WiFi.h>
@@ -16,17 +14,30 @@ const char* googleApiKey = "YOUR_GOOGLE_API_KEY";
 const char* ssid = "SSID";
 const char* passwd = "PASSWD";
 
-WifiLocation location(googleApiKey);
+WifiLocation location (googleApiKey);
+
+// Set time via NTP, as required for x.509 validation
+void setClock () {
+    configTime (0, 0, "pool.ntp.org", "time.nist.gov");
+
+    Serial.print ("Waiting for NTP time sync: ");
+    time_t now = time (nullptr);
+    while (now < 8 * 3600 * 2) {
+        delay (500);
+        Serial.print (".");
+        now = time (nullptr);
+    }
+    struct tm timeinfo;
+    gmtime_r (&now, &timeinfo);
+    Serial.print ("\n");
+    Serial.print ("Current time: ");
+    Serial.print (asctime (&timeinfo));
+}
 
 void setup() {
     Serial.begin(115200);
     // Connect to WPA/WPA2 network
-#ifdef ARDUINO_ARCH_ESP32
-    WiFi.mode(WIFI_MODE_STA);
-#endif
-#ifdef ARDUINO_ARCH_ESP8266
     WiFi.mode(WIFI_STA);
-#endif
     WiFi.begin(ssid, passwd);
     while (WiFi.status() != WL_CONNECTED) {
         Serial.print("Attempting to connect to WPA SSID: ");
@@ -36,13 +47,17 @@ void setup() {
         Serial.println(WiFi.status());
         delay(500);
     }
+    Serial.println ("Connected");
+    setClock ();
+    
     location_t loc = location.getGeoFromWiFi();
 
     Serial.println("Location request data");
-    Serial.println(location.getSurroundingWiFiJson());
-    Serial.println("Latitude: " + String(loc.lat, 7));
-    Serial.println("Longitude: " + String(loc.lon, 7));
-    Serial.println("Accuracy: " + String(loc.accuracy));
+    Serial.println(location.getSurroundingWiFiJson()+"\n");
+    Serial.println ("Location: " + String (loc.lat, 7) + "," + String (loc.lon, 7));
+    //Serial.println("Longitude: " + String(loc.lon, 7));
+    Serial.println ("Accuracy: " + String (loc.accuracy));
+    Serial.println ("Result: " + location.wlStatusStr (location.getStatus ()));
 
 
 }
