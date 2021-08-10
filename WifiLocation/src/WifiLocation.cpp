@@ -127,7 +127,8 @@ location_t WifiLocation::getGeoFromWiFi() {
 #endif // ESP8266
 
 #ifdef ESP32
-    _client.setCACert(GlobalSignCA);
+	_client.setInsecure();
+//    _client.setCACert(GlobalSignCA);
 #endif
     if (_client.connect(googleApisHost, 443)) {
         DEBUG_WL ("Connected to API endpoint\n");
