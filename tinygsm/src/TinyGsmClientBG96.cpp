@@ -209,6 +209,23 @@ bool TinyGsmBG96::doNetworkAttach()
 	return true;
 }
 
+bool TinyGsmBG96::updateApn()
+{
+	String apncmd = "+QICSGP=1,1,\"";
+	apncmd += _apn;
+	apncmd += "\",\"\",\"\",1";
+	sendAT(GF(apncmd.c_str()));
+
+	if (waitResponse(40000L) != 1)
+	{
+		return false;
+	}
+	else
+	{
+		return true;
+	}
+}
+
 bool TinyGsmBG96::startPacketDataCall()
 {
 	if (false == isNetworkConnected())
@@ -218,8 +235,7 @@ bool TinyGsmBG96::startPacketDataCall()
 
 	if (!isIPConnected())
 	{
-		sendAT(GF(NETWORK_APN));
-		if (waitResponse(40000L) != 1)
+		if (updateApn() == false)
 			return false;
 
 		sendAT(GF("+QIACT=1"));
@@ -675,9 +691,7 @@ bool TinyGsmBG96::mqttSend(const char* pData, const char* deviceId,
 	if (waitResponse(40000L) != 1)
 		return false;
 
-	Serial.println(GF(NETWORK_APN));
-	sendAT(GF(NETWORK_APN));
-	if (waitResponse(40000L) != 1)
+	if (updateApn() == false)
 		return false;
 
 	Serial.println(GF("+QIACT=1"));

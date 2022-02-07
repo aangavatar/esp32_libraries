@@ -21,11 +21,14 @@ static const char GSM_OK[] TINY_GSM_PROGMEM = "OK" GSM_NL;
 static const char GSM_ERROR[] TINY_GSM_PROGMEM = "ERROR" GSM_NL;
 static const char GSM_CONNECT[] TINY_GSM_PROGMEM = "CONNECT" GSM_NL;
 
+#if 0
 #if HG_TEST_MODE
 #define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
 #else
 //#define NETWORK_APN "+QICSGP=1,1,\"airtelgprs.com\",\"\",\"\",1"
 #define NETWORK_APN "+QICSGP=1,1,\"vzwinternet\",\"\",\"\",1"
+				    "+QICSGP=1,1,\"vzwinternet1\",\"\",\"\",1"
+#endif
 #endif
 
 enum SimStatus
@@ -226,6 +229,7 @@ public:
 		bool sock_connected;
 		bool got_data;
 		RxFifo rx;
+		String _apn;
 	};
 
 // class GsmClientSecure : public GsmClient
@@ -745,6 +749,8 @@ public:
 	bool doNetworkAttach();
 
 	bool waitForAutoAttach();
+
+	bool updateApn();
 
 	bool startPacketDataCall();
 
@@ -1327,11 +1333,18 @@ public:
 		return waitResponse(1000, r1, r2, r3, r4, r5);
 	}
 
+
+	inline void setApn(String& apn)
+	{
+		_apn = apn;
+	}
+
 public:
 	Stream& stream;
 
 protected:
 	GsmClient* sockets[TINY_GSM_MUX_COUNT];
+	String _apn;
 };
 
 class Cbg96FileSreamer: public Stream
